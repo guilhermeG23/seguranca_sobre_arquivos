@@ -1,0 +1,166 @@
+### Antivirus source-code
+
+#### Implementação em FreeBSD-12.3
+
+
+____
+Proteção em tempo real (somente Linux). O cliente ClamOnAcc para o daemon de varredura ClamD fornece varredura ao acessar em versões modernas do Linux. Isso inclui um recurso opcional para bloquear o acesso a arquivos até que um arquivo seja verificado (prevenção ao acessar).
+____
+
+#### Baixei o pacote da não e dei um pkg add no pacote
+
+Precisa configurar o freshclam.conf e o clamd.conf na mão
+
+Uma instalação padrão da fonte irá em /usr/local, com:
+aplicações em/usr/local/bin
+demônios em/usr/local/sbin
+bibliotecas em/usr/local/lib
+cabeçalhos em/usr/local/include
+configurações em/usr/local/etc/
+bancos de dados em/usr/local/share/clamav/
+
+Uma instalação de pacote Linux provavelmente irá em /usr, com:
+aplicações em/usr/bin
+demônios em/usr/sbin
+bibliotecas em/usr/lib
+cabeçalhos em/usr/include
+configurações em/etc/clamav
+bancos de dados em/var/lib/clamav
+
+
+
+Após instalar o clamav, use o "fleshclam" para atualizar as definições de virus de clamav
+
+
+Deixar o flesh como deamon: freshclam -d
+
+Local onde fica o executavel do scan do clamav
+/usr/local/bin/clamdscan
+
+
+clamav-milter -> É usado para filtro de email
+* Necessita de mais bibliotecas para funcionar
+
+Exemplo de uso do clamav
+```
+[FreeBSD-12.3]/root: clamscan virus/
+Loading:    39s, ETA:   0s [========================>]    8.62M/8.62M sigs       
+Compiling:   6s, ETA:   0s [========================>]       41/41 tasks 
+
+/root/virus/xpaj.exe: Win.Trojan.Xpaj-3 FOUND
+/root/virus/Bezilom.exe: OK
+/root/virus/Melissa.doc: Win.Trojan.Psycho-3 FOUND
+/root/virus/WinNuke.98.exe: Win.Trojan.N-137 FOUND
+/root/virus/Gnil.exe: Win.Trojan.Whboy-1 FOUND
+/root/virus/xpajB.exe: BC.Win.Trojan.Xpaj-7 FOUND
+/root/virus/Zika.exe: OK
+/root/virus/MadMan.exe: Win.Trojan.MadMan-1 FOUND
+/root/virus/Mabezat.exe: Win.Trojan.Mabezat-3 FOUND
+/root/virus/Floxif.exe: Win.Virus.Floxif-2 FOUND
+
+----------- SCAN SUMMARY -----------
+Known viruses: 8616481
+Engine version: 0.104.2
+Scanned directories: 1
+Scanned files: 10
+Infected files: 8
+Data scanned: 29.01 MB
+Data read: 7.19 MB (ratio 4.03:1)
+Time: 196.428 sec (3 m 16 s)
+Start Date: 2022:05:14 20:03:27
+End Date:   2022:05:14 20:06:43
+
+
+
+
+____
+Usuários e privilégios de usuário
+Se você estiver executando freshclame clamdcomo root ou com sudo, e não configurou explicitamente com --disable-clamav, você desejará garantir que o DatabaseOwnerusuário especificado em freshclam.confpossua o diretório do banco de dados para que ele possa fazer download de atualizações de assinatura.
+
+O usuário que clamd, clamdscan, e clamscanexecutado como pode ser o mesmo usuário, mas se não for -- ele apenas precisa de acesso de leitura ao diretório do banco de dados.
+
+Se você optar por usar o clamavusuário padrão para executar freshclame clamd, precisará criar o grupo clamav e a conta de usuário clamav na primeira vez que instalar o ClamAV.
+
+
+groupadd clamav
+useradd -g clamav -s /bin/false -c "Clam Antivirus" clamav
+Por fim, você desejará definir a propriedade do usuário do diretório do banco de dados. Por exemplo:
+
+
+sudo chown -R clamav:clamav /usr/local/share/clamav
+____
+
+
+clamconf -> Usado para mostrar e reconfigurar o clamav
+
+freshclam -> Atualiza os dados de analise do clamav, porém caso o banco estiver com problemas, ele não substitui e nem conserta, ele só impede a ação de atualização
+
+
+
+Onde fica os databases
+Testing database: '/var/db/clamav/
+
+Por padrão, freshclamtentará se conectar à rede de distribuição do banco de dados de assinatura de vírus do ClamAV. Se não houver bancos de dados no diretório especificado, freshclamfará um novo download dos bancos de dados solicitados. Caso contrário, freshclamtentará atualizar os bancos de dados existentes, emparelhando-os com os cdiffs baixados. Se um banco de dados estiver corrompido, ele não será atualizado e substituído por um novo download.
+
+Claro, todo esse comportamento - e mais - pode ser alterado para atender às suas necessidades, modificando freshclam.confe/ou usando várias opções de linha de comando .
+
+[FreeBSD-12.3]/usr/local/bin: ls /var/db/clamav/
+bytecode.cvd   daily.cld      freshclam.dat  main.cvd  
+
+
+
+
+Ferramenta para analise, criação de assinaturas e modificação das mesmas, ajuda muito em caso de falso positivo: sigtool
+
+
+
+
+
+
+
+clamd
+clamdé um daemon multi-thread que usa libclamav para verificar arquivos em busca de vírus. O comportamento de varredura pode ser totalmente configurado para atender à maioria das necessidades, modificando os arquivos clamd.conf.
+
+
+IMPORTANTE: clamd atualmente não protege ou autentica o tráfego vindo do soquete TCP, o que significa que aceitará todos e quaisquer dos seguintes comandos listados de qualquer fonte. Portanto, é altamente recomendável seguir as práticas recomendadas de rede ao configurar sua clamdinstância. Ou seja, não exponha seu soquete TCP à Internet.
+
+
+
+clamscan é um cliente de clamd que é uma execução atrelada ao clamd.conf, dessa forma, só é possível alterar a forma de execução do scan mexendo no conf
+
+
+
+Aqui vai um ponto importante:
+clamdscan é executando uma instancia do clamav deamon
+clamscan é executar sem a instancia, puxando os bancos para a memoria e executando uma instancia unica
+
+
+Modo recursivo: clamscan --recursive <diretorio>
+
+
+
+
+
+___
+### Fazer funcionar o clamd service
+* Criar uma /var/run/clamav e dar um chmod -R 777 no diretorio e seus arquivos
+* Editar o clamd.conf no diretorio de config dele:
+    * Descomentar essa linha: LocalSocket /var/run/clamav/clamd.sock
+    * Descomentar essa linha: LocalSocketMode 660
+    * Comentar ou remover a linha que só tem um example
+
+
+Após fazer isso, use o freshclam para atualizar os repos de BD que ficam em /var/clamav/db
+
+Depois é so rodar o clamd que o processo vai ser criado no diretorio do /var/run/clamav/
+
+PQP, cuidado com o clamav em deamon (Leva bem menos tempo para fazer o processo)
+* 31213 clamav        2  20    0  1287M  1129M select   0:41   0.00% clamd
+
+Ele consome muito recurso com a config base, esse BSD está rodando com uma instancia de Suricata e está com um nucleo a 100% de um Core I3 7º de 7020u, 2GB Ram DDR4 e 16GB SSD.
+
+
+
+
+
+

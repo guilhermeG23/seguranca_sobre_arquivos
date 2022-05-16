@@ -1,0 +1,166 @@
+#Manual
+#https://yara.readthedocs.io/en/stable/gettingstarted.html
+
+#Versao aplicada
+#root@:~ # uname -a
+#FreeBSD  12.3-RELEASE FreeBSD 12.3-RELEASE r371126 GENERIC  amd64
+
+
+### Libs usadas
+pkg update
+pkg install automake
+pkg install libtool
+pkg install gcc
+pkg install flex
+pkg install bison
+pkg install protobuf-c
+
+#Download
+#https://github.com/VirusTotal/yara/releases
+
+#Comandos aplicados
+#./bootstrap.sh
+#./configure
+
+#Foi preciso comentar as linhas: 14767 - 14768 - 14769 para passar pelo instalador
+
+#root@:~/yara-4.2.1 # cat teste 
+#pastel
+
+#root@:~/yara-4.2.1 # cat my_three_rule 
+#rule ExampleRule
+#{
+#    strings:
+#        $my_text_string = "pastel"
+#        $my_hex_string = { E2 34 A1 C8 23 FB }
+#
+#    condition:
+#        $my_text_string or $my_hex_string
+#}
+
+
+
+
+Exemplo de uma regra simples
+
+```
+rule silent_banker : banker
+{
+    meta:
+        description = "This is just an example"
+        threat_level = 3
+        in_the_wild = true
+    strings:
+        $a = {6A 40 68 00 30 00 00 6A 14 8D 91}
+        $b = {8D 4D B0 2B C1 83 C0 27 99 6A 4E 59 F7 F9}
+        $c = "UVODFRYSIHLNWPEJXQZAKCBGMT"
+    condition:
+        $a or $b or $c
+}
+```
+
+Essa regra se aciona contanto que uma das 3 strings sejam ativas
+
+
+____
+
+Regras YARA são escritas como em C, então pense bem ao faze-las e lembresse do C
+
+
+Cada regra em YARA começa com a palavra-chave ruleseguida por um identificador de regra. Os identificadores devem seguir as mesmas convenções lexicais da linguagem de programação C, eles podem conter qualquer caractere alfanumérico e o caractere sublinhado, mas o primeiro caractere não pode ser um dígito. Os identificadores de regra diferenciam maiúsculas de minúsculas e não podem exceder 128 caracteres. As seguintes palavras-chave são reservadas e não podem ser usadas como identificador:
+
+
+Tudo no YARA rule é opcional, menos as condições de execução da regre, exemplo esse:
+```
+rule dummy
+{
+    condition:
+        false
+}
+```
+Que é a minima estrutura necessária
+
+
+
+Strings são os valores a serem analisados na condição sobre os alvos
+
+A estrutura básica delas é :
+
+```
+rule teste
+{
+    string:
+        $teste1 = "olha um texto"
+        $teste2 = { E1 E2 C4 EE FB } 
+    condition:
+        $teste1 or $teste2
+} 
+```
+
+Essas duas regras passaram pela analise em condição de OU, sendo assim, se qualquer uma das duas condições, ele vai julgar que corresponde a regra e emitir um alerta que acertou os valores... isso é ruim por teoria
+
+
+Exemplos de comentarios
+/*
+    This is a multi-line comment ...
+*/
+
+rule CommentExample   // ... and this is single-line comment
+{
+    condition:
+        false  // just a dummy rule, don't do this
+}
+
+
+Strings hexadecimais
+
+São aceitos três tipos de valores nas strings, strings comuns, valores hexadecimais e expressões regulares, támbem é possível fazer o uso de coringas no meio do uso ou demais caracteres especias com alguma ação, Ex:
+
+```
+        $hex_string = { E2 34 ?? C8 A? FB }
+```
+Isso é bem um range de ação, o ? vale para qualquer coisa, isso significa que qualquer coisa que bater nesse range vai dar resultado
+
+
+Temos o intervalo de ação:
+```
+        $hex_string = { F4 23 [4-6] 62 B4 }
+```
+
+Ex:
+```
+F4 23 01 02 03 04 62 B4
+F4 23 00 00 00 00 00 62 B4
+F4 23 15 82 A3 04 45 22 62 B4
+```
+
+Qualquer valor entre o intervalo de 4 a 6 casas de distancia
+
+Vale comentar que até o YARA 2.0, esse limite de intervalo era de até 256 casas, agora com as versões mais recentes, não há limite, vale tambem comentar que o valor deve seguir essa regra:
+
+[ 0 <= x <= Y ]
+
+Isso é:
+
+2-1 = errado
+-1-2 = errado
+1000-999 = errado
+
+1000-1001 = certo
+1-2 = certo
+
+Não preciso comentar que essa váriação consome mais memoria por ter um range que necessita se colocado para trabalhar, vale tambem colocar um unico valor no lugar como um range fixo
+
+Ex:
+FE 39 45 [6-6] 89 00
+FE 39 45 ?? ?? ?? ?? ?? ?? 89 00
+
+Exemplo de saltos ilimitados
+FE 39 45 [10-] 89 00
+FE 39 45 [-] 89 00
+!!! Cuidado, isso tem cara que consome um recurso fudido
+
+Uso de expressão regular
+$hex_string = { F4 23 ( 62 B4 | 56 ) 45 }
+
+
